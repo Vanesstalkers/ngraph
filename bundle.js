@@ -38,17 +38,34 @@
 	}({
 		1: [function(require, module, exports) {
 			module.exports.main = function() {
-				var query = require("query-string").parse(window.location.search.substring(1));
-				var graph = getGraphFromQueryString(query);
+				
+				var query = {};//require("query-string").parse(window.location.search.substring(1));
+				const zObj = {firstName: 'Иванов', secondName: 'Иван', thirdName: 'Иванович', birthDate: '01.02.1993', birthPlace: 'г.Балашов'};
+				query.data = Object.entries(zObj);
+				query.graph = "zStar";
+
+				var graph = getCustomGraphFromQueryString(query);
+				graph.forEachNode(console.log);
 				var createThree = require("ngraph.three");
-                console.log({query, graph, createThree});
+
+				const $container = document.getElementById('container');
+				$container.style.width = `${window.innerWidth}px`;
+				$container.style.height = `${window.innerHeight}px`;
+			
 				var graphics = createThree(graph, {
-					interactive: true
+				  interactive: true,
+				  container: $container,
 				});
+
 				graphics.run();
 				graphics.camera.position.z = getNumber(query.z, 400)
 			}
 			;
+			function getCustomGraphFromQueryString(query) {
+				var graphGenerators = require("ngraph.generators");
+				var createGraph = graphGenerators[query.graph] || graphGenerators.grid;
+				return createGraph(query);
+			}
 			function getGraphFromQueryString(query) {
 				var graphGenerators = require("ngraph.generators");
 				var createGraph = graphGenerators[query.graph] || graphGenerators.grid;
@@ -66,6 +83,7 @@
 		}],
 		2: [function(require, module, exports) {
 			module.exports = {
+				zStar: zStar,
 				ladder: ladder,
 				complete: complete,
 				completeBipartite: completeBipartite,
@@ -78,6 +96,18 @@
 				wattsStrogatz: wattsStrogatz
 			};
 			var createGraph = require("ngraph.graph");
+			function zStar(query) {
+				
+				var g = createGraph(), count = query.data.length;
+
+				g.addNode('root', {name: 'root'});
+				query.data.forEach( ([name, value], idx) => {
+					g.addNode(idx, {name, value});
+					g.addLink('root', idx);
+				});
+
+				return g
+			}
 			function ladder(n) {
 				if (!n || n < 0) {
 					throw new Error("Invalid number of nodes")
@@ -628,6 +658,7 @@
 				settings = merge(settings, {
 					interactive: true
 				});
+				var textlabels = [];
 				var beforeFrameRender;
 				var isStable = false;
 				var disposed = false;
@@ -702,6 +733,10 @@
 						isStable = layout.step()
 					}
 					controls.update();
+
+					for(var i=0; i < textlabels.length; i++) {
+						textlabels[i].updatePosition();
+					};
 					renderOneFrame()
 				}
 				function dispose(options) {
@@ -759,13 +794,69 @@
 				function renderLink(linkId) {
 					linkRenderer(linkUI[linkId])
 				}
+				function createTextLabel(data) {
+					var div = document.createElement('div');
+					div.className = 'text-label';
+					div.style.position = 'absolute';
+					div.style.width = 100;
+					div.style.height = 100;
+					div.style.top = -1000;
+					div.style.left = -1000;
+
+					var label = document.createElement('label');
+					label.style.fontWeight = 'bold';
+					label.style.color = 'red';
+					label.innerHTML = data.name;
+					div.appendChild(label);
+					if(data.value){
+						var p = document.createElement('p');
+						p.innerHTML = data.value;
+						div.appendChild(p);
+					}
+					
+					return {
+						element: div,
+						parent: false,
+						position: new THREE.Vector3(0,0,0),
+						setHTML: function(html) {
+						this.element.innerHTML = html;
+						},
+						setParent: function(threejsobj) {
+						this.parent = threejsobj;
+						},
+						updatePosition: function() {
+						if(parent) {
+							this.position.copy(this.parent.position);
+						}
+						
+						var coords2d = this.get2DCoords(this.position, camera);
+						this.element.style.left = coords2d.x + 'px';
+						this.element.style.top = coords2d.y + 'px';
+						},
+						get2DCoords: function(position, camera) {
+						var vector = position.project(camera);
+						vector.x = (vector.x + 1)/2 * window.innerWidth;
+						vector.y = -(vector.y - 1)/2 * window.innerHeight;
+						return vector;
+						}
+					};
+				}
+
 				function initNode(node) {
 					var ui = nodeUIBuilder(node);
 					if (!ui)
 						return;
 					ui.pos = layout.getNodePosition(node.id);
 					nodeUI[node.id] = ui;
+
 					scene.add(ui)
+
+					if(node.data){
+						var text = createTextLabel(node.data);
+						text.setParent(ui);
+						textlabels.push(text);
+						renderer.domElement.parentNode.appendChild(text.element);
+					}
 				}
 				function initLink(link) {
 					var ui = linkUIBuilder(link);
@@ -891,9 +982,10 @@
 			var NODE_SIZE = 2;
 			function createNodeUI(node) {
 				var nodeMaterial = new THREE.MeshBasicMaterial({
-					color: 16711422
+					color: node.id === 'root' ? 52428 : 16711422
 				});
-				var nodeGeometry = new THREE.BoxGeometry(NODE_SIZE,NODE_SIZE,NODE_SIZE);
+				const factor = node.id === 'root' ? 3 : 1;
+				var nodeGeometry = new THREE.BoxGeometry(NODE_SIZE*factor,NODE_SIZE*factor,NODE_SIZE*factor);
 				return new THREE.Mesh(nodeGeometry,nodeMaterial)
 			}
 			function createLinkUI(link) {
