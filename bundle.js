@@ -66,7 +66,6 @@
 		}],
 		2: [function(require, module, exports) {
 			module.exports = {
-				custom: custom,
 				ladder: ladder,
 				complete: complete,
 				completeBipartite: completeBipartite,
@@ -79,26 +78,6 @@
 				wattsStrogatz: wattsStrogatz
 			};
 			var createGraph = require("ngraph.graph");
-			function custom(n) {
-				if (n < 0) {
-					throw new Error("Invalid number of nodes in balanced tree")
-				}
-				var g = createGraph(), count = n;
-
-				g.addNode(1, {label: 'root'});
-				for (i = 1; i <= count; ++i) {
-					g.addNode(i, {label: 'test'+i});
-					g.addLink(1, i);
-				}
-
-				// if (n === 0) {
-				// 	g.addNode(1, {label: 'test'});
-				// }
-				// for (i = 1; i < count; ++i) {
-				// 	g.addLink(1, i, {label: 'test'+i});
-				// }
-				return g
-			}
 			function ladder(n) {
 				if (!n || n < 0) {
 					throw new Error("Invalid number of nodes")
@@ -642,13 +621,12 @@
 			}
 		}
 		, {}],
-		6: [function(require, module, exports) { // ngrath.three
+		6: [function(require, module, exports) {
 			var THREE = require("./lib/three");
 			module.exports = function(graph, settings) {
 				var merge = require("ngraph.merge");
 				settings = merge(settings, {
-					interactive: true,
-					container: document.getElementById('container')
+					interactive: true
 				});
 				var beforeFrameRender;
 				var isStable = false;
@@ -698,7 +676,6 @@
 					scene: scene,
 					layout: layout
 				};
-				var textlabels = [];
 				initialize();
 				return graphics;
 				function onFrame(cb) {
@@ -725,10 +702,6 @@
 						isStable = layout.step()
 					}
 					controls.update();
-
-					for(var i=0; i<textlabels.length; i++) {
-						textlabels[i].updatePosition();
-					};
 					renderOneFrame()
 				}
 				function dispose(options) {
@@ -786,61 +759,14 @@
 				function renderLink(linkId) {
 					linkRenderer(linkUI[linkId])
 				}
-				function createTextLabel() {
-					var div = document.createElement('div');
-					div.className = 'text-label';
-					div.style.position = 'absolute';
-					div.style.width = 100;
-					div.style.height = 100;
-					div.innerHTML = "hi there!";
-					div.style.top = -1000;
-					div.style.left = -1000;
-					
-					var _this = this;
-					
-					return {
-						element: div,
-						parent: false,
-						position: new THREE.Vector3(0,0,0),
-						setHTML: function(html) {
-						this.element.innerHTML = html;
-						},
-						setParent: function(threejsobj) {
-						this.parent = threejsobj;
-						},
-						updatePosition: function() {
-						if(parent) {
-							this.position.copy(this.parent.position);
-						}
-						
-						var coords2d = this.get2DCoords(this.position, camera);
-						this.element.style.left = coords2d.x + 'px';
-						this.element.style.top = coords2d.y + 'px';
-						},
-						get2DCoords: function(position, camera) {
-						var vector = position.project(camera);
-						vector.x = (vector.x + 1)/2 * window.innerWidth;
-						vector.y = -(vector.y - 1)/2 * window.innerHeight;
-						return vector;
-						}
-					};
-				}
-
 				function initNode(node) {
 					var ui = nodeUIBuilder(node);
 					if (!ui)
 						return;
 					ui.pos = layout.getNodePosition(node.id);
 					nodeUI[node.id] = ui;
-                    console.log({nodeUI, ui});
-
+                    console.log({nodeUI});
 					scene.add(ui)
-
-					var text = createTextLabel();
-					text.setHTML("Label "+Math.random());
-					text.setParent(ui);
-					textlabels.push(text);
-					document.getElementById('container').appendChild(text.element);
 				}
 				function initLink(link) {
 					var ui = linkUIBuilder(link);
@@ -903,13 +829,13 @@
 					}();
 					var renderer = isWebGlSupported ? new THREE.WebGLRenderer(settings) : new THREE.CanvasRenderer(settings);
 					var width, height;
-					// if (settings.container) {
-					// 	width = settings.container.clientWidth;
-					// 	height = settings.container.clientHeight
-					// } else {
+					if (settings.container) {
+						width = settings.container.clientWidth;
+						height = settings.container.clientHeight
+					} else {
 						width = window.innerWidth;
 						height = window.innerHeight
-					// }
+					}
 					renderer.setSize(width, height);
 					if (settings.container) {
 						settings.container.appendChild(renderer.domElement)
@@ -925,8 +851,6 @@
 					var container = renderer.domElement;
 					var camera = new THREE.PerspectiveCamera(75,container.clientWidth / container.clientHeight,.1,3e3);
 					camera.position.z = 400;
-					// var camera = new THREE.PerspectiveCamera(60,window.innerWidth / window.innerHeight,1,10000);
-					// camera.position.z = 500;
 					return camera
 				}
 				function createControls() {
@@ -1363,7 +1287,7 @@
 						}
 						body = physicsSimulator.addBodyAt(pos);
 						nodeBodies[nodeId] = body;
-                        //console.log({pos, body});
+                        console.log({pos, body});
 						updateBodyMass(nodeId);
 						if (isNodeOriginallyPinned(node)) {
 							body.isPinned = true
@@ -23233,17 +23157,6 @@
 					this.z = a[2] * b + a[6] * c + a[10] * d + a[14];
 					return this
 				},
-				_applyMatrix4(t) {
-					const e = this.x
-					  , n = this.y
-					  , i = this.z
-					  , r = t.elements
-					  , s = 1 / (r[3] * e + r[7] * n + r[11] * i + r[15]);
-					return this.x = (r[0] * e + r[4] * n + r[8] * i + r[12]) * s,
-					this.y = (r[1] * e + r[5] * n + r[9] * i + r[13]) * s,
-					this.z = (r[2] * e + r[6] * n + r[10] * i + r[14]) * s,
-					this
-				},
 				applyProjection: function(a) {
 					var b = this.x
 					  , c = this.y
@@ -23403,9 +23316,6 @@
 					this.y = e * f - c * h;
 					this.z = c * g - d * f;
 					return this
-				},
-				project(t) {
-					return this._applyMatrix4(t.matrixWorldInverse)._applyMatrix4(t.projectionMatrix)
 				},
 				projectOnVector: function() {
 					var a, b;
