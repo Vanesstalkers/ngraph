@@ -621,7 +621,7 @@
 			}
 		}
 		, {}],
-		6: [function(require, module, exports) {
+		6: [function(require, module, exports) { // ngraph.three
 			var THREE = require("./lib/three");
 			module.exports = function(graph, settings) {
 				var merge = require("ngraph.merge");
@@ -765,7 +765,6 @@
 						return;
 					ui.pos = layout.getNodePosition(node.id);
 					nodeUI[node.id] = ui;
-                    console.log({nodeUI});
 					scene.add(ui)
 				}
 				function initLink(link) {
@@ -23157,6 +23156,17 @@
 					this.z = a[2] * b + a[6] * c + a[10] * d + a[14];
 					return this
 				},
+				_applyMatrix4(t) {
+					const e = this.x
+					  , n = this.y
+					  , i = this.z
+					  , r = t.elements
+					  , s = 1 / (r[3] * e + r[7] * n + r[11] * i + r[15]);
+					return this.x = (r[0] * e + r[4] * n + r[8] * i + r[12]) * s,
+					this.y = (r[1] * e + r[5] * n + r[9] * i + r[13]) * s,
+					this.z = (r[2] * e + r[6] * n + r[10] * i + r[14]) * s,
+					this
+				},
 				applyProjection: function(a) {
 					var b = this.x
 					  , c = this.y
@@ -23316,6 +23326,9 @@
 					this.y = e * f - c * h;
 					this.z = c * g - d * f;
 					return this
+				},
+				project(t) {
+					return this._applyMatrix4(t.matrixWorldInverse)._applyMatrix4(t.projectionMatrix)
 				},
 				projectOnVector: function() {
 					var a, b;
